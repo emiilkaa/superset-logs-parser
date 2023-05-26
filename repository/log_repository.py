@@ -13,24 +13,27 @@ from repository.db import session
 
 
 def get_log_by_id(log_id: int) -> str:
-    query = session.query(Log).filter(Log.id == log_id).first().as_dict()
+    query = session.query(Log).filter(Log.id == log_id).first()
+    if query is None:
+        raise RuntimeError('Not found')
+    query = query.as_dict()
     query['json'] = json.loads(query['json'])
     return json.dumps(query, indent=4, default=str, ensure_ascii=False).encode('utf8').decode()
 
 
 def get_all_logs() -> pd.DataFrame:
     query = session.query(Log).order_by(Log.id)
-    return pd.read_sql(query.statement, query.session.bind).set_index(['id'])
+    return pd.read_sql(query.statement, query.session.bind)
 
 
 def get_last_n_logs(n: int) -> pd.DataFrame:
     query = session.query(Log).order_by(Log.id.desc()).limit(n)
-    return pd.read_sql(query.statement, query.session.bind).set_index(['id'])
+    return pd.read_sql(query.statement, query.session.bind)
 
 
 def get_logs_between_datetimes(start_dttm: datetime.datetime, end_dttm: datetime.datetime) -> pd.DataFrame:
     query = session.query(Log).filter(and_(Log.dttm >= start_dttm, Log.dttm <= end_dttm)).order_by(Log.id.desc())
-    return pd.read_sql(query.statement, query.session.bind).set_index(['id'])
+    return pd.read_sql(query.statement, query.session.bind)
 
 
 def get_dashboard_logs(dashboard_id: int, start_dttm: datetime.datetime = None, end_dttm: datetime.datetime = None) -> pd.DataFrame:
@@ -42,7 +45,7 @@ def get_dashboard_logs(dashboard_id: int, start_dttm: datetime.datetime = None, 
     if end_dttm is not None:
         query = query.filter(Log.dttm <= end_dttm)
     query = query.order_by(Log.id.desc())
-    return pd.read_sql(query.statement, query.session.bind).set_index(['id'])
+    return pd.read_sql(query.statement, query.session.bind)
 
 
 def count_dashboards_usage(start_dttm: datetime.datetime = None, end_dttm: datetime.datetime = None) -> pd.DataFrame:
@@ -76,7 +79,7 @@ def get_last_dashboards_usage(last_date: datetime.datetime = None) -> pd.DataFra
 
 def get_user_actions(user_id: int) -> pd.DataFrame:
     query = session.query(Log).filter(Log.user_id == user_id).order_by(Log.id.desc())
-    return pd.read_sql(query.statement, query.session.bind).set_index(['id'])
+    return pd.read_sql(query.statement, query.session.bind)
 
 
 def count_users_using_each_dashboard() -> pd.DataFrame:
@@ -101,24 +104,25 @@ def get_duration_stats_by_action() -> pd.DataFrame:
     return result
 
 
-def plot_dashboard_usage_by_weekday(dashboard_id: int) -> matplotlib.figure:
-    usage_by_weekday = session.query(func.date_trunc('day', Log.dttm), func.count(Log.id)).filter(
-        Log.dashboard_id == dashboard_id).group_by(func.date_trunc('day', Log.dttm)).all()
+def plot_dashboard_usage_by_month(dashboard_id: int) -> matplotlib.figure:
+    usage_by_month = session.query(func.date_part('month', Log.dttm), func.count(Log.id)).filter(
+        Log.dashboard_id == dashboard_id).group_by(func.date_part('month', Log.dttm)).all()
 
-    usage_by_weekday_dict = {}
-    for usage in usage_by_weekday:
-        weekday = usage[0].strftime('%A')
+    usage_by_month_dict = {}
+    for usage in usage_by_month:
+        month = int(usage[0])
         count = usage[1]
-        usage_by_weekday_dict[weekday] = count
+        usage_by_month_dict[month] = count
 
-    weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    counts = [usage_by_weekday_dict.get(weekday, 0) for weekday in weekdays]
+    months = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December']
+    counts = [usage_by_month_dict.get(month, 0) for month in range(1, 13)]
     plt.figure(figsize=(10, 6))
-    plt.bar(weekdays, counts)
-    plt.title(f"Dashboard {dashboard_id} usage by weekday")
-    plt.xlabel("Weekday")
+    plt.bar(months, counts)
+    plt.title(f"Dashboard {dashboard_id} usage by month")
+    plt.xlabel("Month")
     plt.ylabel("Usage count")
-    plt.show()
+    plt.xticks(rotation=20)
 
     return plt.gcf()
 

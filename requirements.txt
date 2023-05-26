@@ -1,0 +1,9 @@
+matplotlib~=3.7.1
+pandas~=2.0.1
+future~=0.18.3
+openpyxl~=3.1.2
+pandastable~=0.13.1
+psycopg2~=2.9.6
+SQLAlchemy~=2.0.13
+uuid~=1.30
+PyYAML~=6.0
